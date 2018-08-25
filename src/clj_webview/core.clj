@@ -3,9 +3,10 @@
 (import javafx.application.Application)
 (import javafx.application.Platform)
 (import javafx.scene.web.WebView)
-;(import hk.molloy.MyApplication)
+                                        ;(import hk.molloy.MyApplication)
 (import netscape.javascript.JSObject)
 (import javafx.beans.value.ChangeListener)
+(import javafx.event.EventHandler)
 (import javafx.concurrent.Worker$State)
 (import WebUIController)
 (import MyEventDispatcher)
@@ -15,11 +16,11 @@
 
 (defmacro run-later [& forms]
   `(let [
-          p# (promise)
-          ]
+         p# (promise)
+         ]
      (Platform/runLater
-       (fn []
-         (deliver p# (try ~@forms (catch Throwable t# t#)))))
+      (fn []
+        (deliver p# (try ~@forms (catch Throwable t# t#)))))
      p#))
 
 (def url "https://app.sli.do/event/dhsnnxay/ask")
@@ -30,32 +31,41 @@
                      #_@(run-later (.getEngine (WebView.)))))
 
 (def webview WebUIController/view)
+(doto webview
+  (-> (.setOnKeyPressed
+       (reify EventHandler
+         (handle [this event]
+           (println "Clojure keypress detected\n")
+           (println (-> event .getCode .toString))
+           (println (-> event .getText .toString))
+           )))))
+
 
 (defn execute-script [s]
   (run-later
-    (let [
-           result (.executeScript webengine s)
-           ]
-      (if (instance? JSObject result)
-        (str result)
-        result))))
+   (let [
+         result (.executeScript webengine s)
+         ]
+     (if (instance? JSObject result)
+       (str result)
+       result))))
 
 (defn inject-firebug []
   (execute-script (slurp "js-src/inject-firebug.js")))
 
 (defn execute-script-async [s]
   (let [
-         p (promise)
-         *out* *out*
-         ]
+        p (promise)
+        *out* *out*
+        ]
     (Platform/runLater
-      (fn []
-        (let [
-               o (.executeScript webengine "new Object()")
-               ]
-          (.setMember o "cb" (fn [s] (deliver p s)))
-          (.setMember o "println" (fn [s] (println s)))
-          (.eval o s))))
+     (fn []
+       (let [
+             o (.executeScript webengine "new Object()")
+             ]
+         (.setMember o "cb" (fn [s] (deliver p s)))
+         (.setMember o "println" (fn [s] (println s)))
+         (.eval o s))))
     @p))
 
 (defn repl []
@@ -66,9 +76,9 @@
 
 (defn bind [s obj]
   (run-later
-    (.setMember
-      (.executeScript webengine "window")
-      s obj)))
+   (.setMember
+    (.executeScript webengine "window")
+    s obj)))
 
 (defonce cookie-manager
   (doto (java.net.CookieManager.)
@@ -79,27 +89,40 @@
 
 (defn async-load [url]
   (let [
-         p (promise)
-         f (fn [s]
-             (binding [*out* *out*] (println s)))
-         listener (reify ChangeListener
-                    (changed [this observable old-value new-value]
-                             (when (= new-value Worker$State/SUCCEEDED)
-                               ;first remove this listener
-                               (.removeListener observable this)
-                               ;and then redefine log and error (fresh page)
-                               (bind "println" f)
-                               (future
-                                 (Thread/sleep 1000)
-                                 (execute-script "console.log = function(s) {println.invoke(s)};
+        p (promise)
+        f (fn [s]
+            (binding [*out* *out*] (println s)))
+        listener (reify ChangeListener
+                   (changed [this observable old-value new-value]
+                     (when (= new-value Worker$State/SUCCEEDED)
+                                        ;first remove this listener
+                       (.removeListener observable this)
+                                        ;and then redefine log and error (fresh page)
+                       (bind "println" f)
+                       (future
+                         (Thread/sleep 1000)
+                         (execute-script "console.log = function(s) {println.invoke(s)};
                                                  console.error = function(s) {println.invoke(s)};
                                                  "))
-                               (deliver p true))))
-         ]
+                       (deliver p true))))
+        key-listener (reify EventHandler
+                       (handle [this event]
+                         (future
+                           (println "Clojure keypress detected\n"))
+                         (deliver p true)))
+        ]
+
     (run-later
-      (doto webengine
-        (-> .getLoadWorker .stateProperty (.addListener listener))
-        (.load url)))
+     (doto webengine
+       (-> .getLoadWorker .stateProperty (.addListener key-listener))))
+    (run-later
+     ;; (doto webview
+     ;;   (-> .getLoadWorker .stateProperty (.addListener key-listener)))
+     (doto webengine
+       ;; (-> .getLoadWorker .stateProperty (.addListener key-listener))
+       (-> .getLoadWorker .stateProperty (.addListener listener))
+       (.load url)))
+
     @p
     ))
 
@@ -107,7 +130,7 @@
   (execute-script "window.history.back()"))
 
 ;; https://www.java-forums.org/javafx/93113-custom-javafx-webview-protocol-handler-print.html
-;over riding URL handlers
+                                        ;over riding URL handlers
 ;; (import sun.net.www.protocol.http.Handler)
 ;; (import sun.net.www.protocol.http.HttpURLConnection)
 ;; (import java.net.URL)
