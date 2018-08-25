@@ -30,16 +30,30 @@
                      WebUIController/engine
                      #_@(run-later (.getEngine (WebView.)))))
 
+;; https://stackoverflow.com/questions/22778241/javafx-webview-scroll-to-desired-position
 (def webview WebUIController/view)
-(doto webview
-  (-> (.setOnKeyPressed
-       (reify EventHandler
-         (handle [this event]
-           (println "Clojure keypress detected\n")
-           (println (-> event .getCode .toString))
-           (println (-> event .getText .toString))
-           )))))
 
+(defn bind-to-webview [webview]
+  (Thread/sleep 1500)
+  (doto webview
+    (->
+     (.setOnKeyPressed
+      (reify EventHandler
+        (handle [this event]
+          ;; (println "Clojure keypress detected\n")
+          ;; (println (-> event .getCode .toString))
+          ;; (println (-> event .getText .toString))
+          (.consume event)
+          (do
+            (case (-> event .getText .toString)
+              "k" (execute-script "window.scrollTo(window.scrollX, window.scrollY - 50)")
+              "j" (execute-script "window.scrollTo(window.scrollX, window.scrollY + 50)")
+              "c" (execute-script "document.body.innerHTML=''")
+              "r" (execute-script "window.location.reload()")
+              false
+              )
+            false)
+          ))))))
 
 (defn execute-script [s]
   (run-later
@@ -128,6 +142,12 @@
 
 (defn back []
   (execute-script "window.history.back()"))
+
+(defn -main []
+  (bind-to-webview)
+  (println "Begin."))
+
+(-main)
 
 ;; https://www.java-forums.org/javafx/93113-custom-javafx-webview-protocol-handler-print.html
                                         ;over riding URL handlers
