@@ -18,40 +18,40 @@ import javafx.scene.input.KeyEvent;
  */
 public class WebUIController implements Initializable {
 
-    @FXML
-    TextField txtURL;
-    @FXML
-    WebView webView;
-    private WebEngine webEngine;
-    public static WebEngine engine;
-    public static WebView view;
+  @FXML
+  TextField txtURL;
+  @FXML
+  WebView webView;
+  private WebEngine webEngine;
+  public static WebEngine engine;
+  public static WebView view;
 
-    @FXML
-    private void goAction(ActionEvent evt) {
-        webEngine.load(txtURL.getText().startsWith("http") ? txtURL.getText() : "http://" + txtURL.getText());
-    }
+  @FXML
+  private void goAction(ActionEvent evt) {
+    webEngine.load(txtURL.getText().startsWith("http") ? txtURL.getText() : "http://" + txtURL.getText());
+  }
 
-    @Override
-    public void initialize(URL url, ResourceBundle rb) {
+  @Override
+  public void initialize(URL url, ResourceBundle rb) {
 
-        webEngine = webView.getEngine();
-        engine = webEngine;
-        view = webView;
-        webEngine.locationProperty().addListener(new ChangeListener<String>() {
-            @Override
-            public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
-                txtURL.setText(newValue);
-            }
-        });
-        txtURL.setText("http://ahungry.com");
+    webEngine = webView.getEngine();
+    engine = webEngine;
+    view = webView;
+    webEngine.locationProperty().addListener(new ChangeListener<String>() {
+        @Override
+        public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
+          txtURL.setText(newValue);
+        }
+      });
+    txtURL.setText("http://ahungry.com");
 
-        view.setOnKeyPressed(new EventHandler<KeyEvent>() {
-            @Override
-            public void handle(KeyEvent event)
-            {
-              System.out.println("Key pushed\n");
-              // currentlyActiveKeys.add(event.getCode().toString());
-            }
-          });
-    }
+    view.setOnKeyPressed(new EventHandler<KeyEvent>() {
+        @Override
+        public void handle(KeyEvent event)
+        {
+          System.out.println("Key pushed\n");
+          // currentlyActiveKeys.add(event.getCode().toString());
+        }
+      });
+  }
 }

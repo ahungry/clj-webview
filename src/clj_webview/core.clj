@@ -154,20 +154,29 @@
 (import sun.net.www.protocol.http.HttpURLConnection)
 (import java.net.URL)
 (import java.net.URLConnection)
+;; no matching ctor
 ;; (import java.net.HttpURLConnection)
+(import javax.net.ssl.HttpsURLConnection)
 (import java.io.File)
 (import java.net.URLStreamHandlerFactory)
 (import java.net.URLStreamHandler)
 
 (defn my-connection-handler [protocol]
-  (proxy [Handler] []
-    (openConnection [& [url proxy :as args]]
-      (println args)
-      ;; #_(HttpURLConnection. url proxy)
-      ;; Not a bad way to just never resolve URLs we want to skip (advertising ones)
-      (if (re-matches #".*.css" (.toString url)) (HttpURLConnection. (URL. "http://0.0.0.0") proxy)
-          (HttpURLConnection. url proxy))
-      )))
+  (println protocol)
+  (if (= "https" protocol)
+    (proxy [Handler] []
+      (openConnection [& [url proxy :as args]]
+        (println "Serve some https")
+        (HttpsURLConnection. url)))
+    (proxy [Handler] []
+      (openConnection [& [url proxy :as args]]
+        (println args)
+        (println protocol)
+        ;; #_(HttpURLConnection. url proxy)
+        ;; Not a bad way to just never resolve URLs we want to skip (advertising ones)
+        (if (re-matches #".*.css" (.toString url)) (HttpURLConnection. (URL. "http://0.0.0.0") proxy)
+            (HttpURLConnection. url proxy))
+        ))))
 
 (defonce stream-handler-factory
   (URL/setURLStreamHandlerFactory
