@@ -7,6 +7,7 @@
 (import netscape.javascript.JSObject)
 (import javafx.beans.value.ChangeListener)
 (import javafx.event.EventHandler)
+(import javafx.scene.input.KeyEvent)
 (import javafx.concurrent.Worker$State)
 (import WebUIController)
 (import MyEventDispatcher)
@@ -93,23 +94,17 @@
                        (bind "println" f)
                        (future
                          (Thread/sleep 1000)
+                         (execute-script (slurp "js-src/disable-inputs.js"))
                          (execute-script "console.log = function(s) {println.invoke(s)};
                                                  console.error = function(s) {println.invoke(s)};
                                                  "))
                        (deliver p true))))
-        key-listener (reify EventHandler
-                       (handle [this event]
-                         (future
-                           (println "Clojure keypress detected\n"))
-                         (deliver p true)))
         ]
 
+    ;; (run-later
+    ;;  (doto webengine
+    ;;    (-> .getLoadWorker .stateProperty (.addListener key-listener))))
     (run-later
-     (doto webengine
-       (-> .getLoadWorker .stateProperty (.addListener key-listener))))
-    (run-later
-     ;; (doto webview
-     ;;   (-> .getLoadWorker .stateProperty (.addListener key-listener)))
      (doto webengine
        ;; (-> .getLoadWorker .stateProperty (.addListener key-listener))
        (-> .getLoadWorker .stateProperty (.addListener listener))
@@ -121,23 +116,26 @@
 (defn back []
   (execute-script "window.history.back()"))
 
+;; https://docs.oracle.com/javafx/2/events/filters.htm
 (doto webview
   (->
-   (.setOnKeyPressed
-    (reify EventHandler
+   (.addEventFilter
+    (. KeyEvent KEY_PRESSED)
+    (reify EventHandler ;; EventHandler
       (handle [this event]
         ;; (println "Clojure keypress detected\n")
         ;; (println (-> event .getCode .toString))
         (println (-> event .getText .toString))
         (.consume event)
-        (do
-          (case (-> event .getText .toString)
-            "k" (execute-script "window.scrollTo(window.scrollX, window.scrollY - 50)")
-            "j" (execute-script "window.scrollTo(window.scrollX, window.scrollY + 50)")
-            "c" (execute-script "document.body.innerHTML=''")
-            "r" (execute-script "window.location.reload()")
-            false
-            )
+        ;; disable webview here, until some delay was met
+        ;; https://stackoverflow.com/questions/27038443/javafx-disable-highlight-and-copy-mode-in-webengine
+        ;; https://docs.oracle.com/javase/8/javafx/api/javafx/scene/web/WebView.html
+        (execute-script (slurp "js-src/disable-inputs.js"))
+        (case (-> event .getText .toString)
+          "k" (execute-script "window.scrollTo(window.scrollX, window.scrollY - 50)")
+          "j" (execute-script "window.scrollTo(window.scrollX, window.scrollY + 50)")
+          "c" (execute-script "document.body.innerHTML=''")
+          "r" (execute-script "window.location.reload()")
           false)
         )))))
 
