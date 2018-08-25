@@ -116,6 +116,8 @@
 (defn back []
   (execute-script "window.history.back()"))
 
+(def js-disable-inputs (slurp "js-src/disable-inputs.js"))
+
 ;; https://docs.oracle.com/javafx/2/events/filters.htm
 (doto webview
   (->
@@ -130,7 +132,7 @@
         ;; disable webview here, until some delay was met
         ;; https://stackoverflow.com/questions/27038443/javafx-disable-highlight-and-copy-mode-in-webengine
         ;; https://docs.oracle.com/javase/8/javafx/api/javafx/scene/web/WebView.html
-        (execute-script (slurp "js-src/disable-inputs.js"))
+        (execute-script js-disable-inputs)
         (case (-> event .getText .toString)
           "k" (execute-script "window.scrollTo(window.scrollX, window.scrollY - 50)")
           "j" (execute-script "window.scrollTo(window.scrollX, window.scrollY + 50)")
