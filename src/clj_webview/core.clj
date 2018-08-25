@@ -106,21 +106,22 @@
 (defn back []
   (execute-script "window.history.back()"))
 
+;; https://www.java-forums.org/javafx/93113-custom-javafx-webview-protocol-handler-print.html
 ;over riding URL handlers
-(import sun.net.www.protocol.http.Handler)
-(import sun.net.www.protocol.http.HttpURLConnection)
-(import java.net.URL)
-(import java.net.URLStreamHandler)
-(import java.net.URLStreamHandlerFactory)
-(import java.net.URLStreamHandler)
+;; (import sun.net.www.protocol.http.Handler)
+;; (import sun.net.www.protocol.http.HttpURLConnection)
+;; (import java.net.URL)
+;; (import java.net.URLStreamHandler)
+;; (import java.net.URLStreamHandlerFactory)
+;; (import java.net.URLStreamHandler)
 
-(defn my-connection-handler [protocol]
-  (proxy [Handler] []
-    (openConnection [& [url proxy :as args]]
-                    (println args)
-                    #_(HttpURLConnection. url proxy))))
+;; (defn my-connection-handler [protocol]
+;;   (proxy [Handler] []
+;;     (openConnection [& [url proxy :as args]]
+;;                     (println args)
+;;                     #_(HttpURLConnection. url proxy))))
 
-(defonce stream-handler-factory
-  (URL/setURLStreamHandlerFactory
-    (reify URLStreamHandlerFactory
-      (createURLStreamHandler [this protocol] (#'my-connection-handler protocol)))))
+;; (defonce stream-handler-factory
+;;   (URL/setURLStreamHandlerFactory
+;;     (reify URLStreamHandlerFactory
+;;       (createURLStreamHandler [this protocol] (#'my-connection-handler protocol)))))

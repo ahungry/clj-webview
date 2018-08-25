@@ -9,6 +9,9 @@ import javafx.scene.control.TextField;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 
+import javafx.event.EventHandler;
+import javafx.scene.input.KeyEvent;
+
 /**
  *
  * @author Alvin Tabontabon
@@ -40,6 +43,15 @@ public class WebUIController implements Initializable {
                 txtURL.setText(newValue);
             }
         });
-        txtURL.setText("http://www.google.com");
+        txtURL.setText("http://ahungry.com");
+
+        view.setOnKeyPressed(new EventHandler<KeyEvent>() {
+            @Override
+            public void handle(KeyEvent event)
+            {
+              System.out.println("Key pushed\n");
+              // currentlyActiveKeys.add(event.getCode().toString());
+            }
+          });
     }
 }
