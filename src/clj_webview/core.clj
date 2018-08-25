@@ -155,6 +155,7 @@
 (import java.net.URL)
 (import java.net.URLConnection)
 ;; (import java.net.HttpURLConnection)
+(import java.io.File)
 (import java.net.URLStreamHandlerFactory)
 (import java.net.URLStreamHandler)
 
@@ -163,7 +164,9 @@
     (openConnection [& [url proxy :as args]]
       (println args)
       ;; #_(HttpURLConnection. url proxy)
-      (HttpURLConnection. url proxy)
+      ;; Not a bad way to just never resolve URLs we want to skip (advertising ones)
+      (if (re-matches #".*.css" (.toString url)) (HttpURLConnection. (URL. "http://0.0.0.0") proxy)
+          (HttpURLConnection. url proxy))
       )))
 
 (defonce stream-handler-factory
