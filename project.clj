@@ -12,5 +12,6 @@
   ;; :main clj-webview.browser
   :main clj-webview.core
   :aot [clj-webview.browser]
+  :profiles {:uberjar {:aot :all}}
   :jvm-opts ["-Dfile.encoding=UTF8"]
   )
