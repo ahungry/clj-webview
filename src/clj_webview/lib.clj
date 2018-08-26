@@ -89,7 +89,7 @@
                                         ;first remove this listener
                        (.removeListener observable this)
                                         ;and then redefine log and error (fresh page)
-                       (bind "println" f)
+                       (bind "println" f webengine)
                        (future
                          (Thread/sleep 1000)
                          (execute-script webengine js-disable-inputs)
@@ -131,10 +131,22 @@
             false)
           ))))))
 
+(defn url-ignore-regexes []
+  [
+   #".*analytics.*"
+   #".*\.css$"
+   ])
+
+(defn matching-regexes [url regexes]
+  (filter #(re-matches % url) regexes))
+
+(defn url-ignorable? [url]
+  (> (count (matching-regexes url (url-ignore-regexes))) 0))
+
 (defn url-or-no [url proto]
   (let [url (.toString url)]
     (URL.
-     (if (re-matches #".*\.css$" url)
+     (if (url-ignorable? url)
        (format "%s://0.0.0.0:65535" proto)
        url))))
 
