@@ -1,4 +1,6 @@
-(ns clj-webview.boot)
+(ns clj-webview.boot
+  (:use clj-webview.lib)
+  (:require [clj-webview.lib]))
 
 (import javafx.application.Application)
 (import javafx.application.Platform)
@@ -28,15 +30,6 @@
 ;;launch calls the fxml which in turn loads WebUIController
 (defonce launch (future (Application/launch com.ahungry.Browser (make-array String 0))))
 
-(defmacro run-later [& forms]
-  `(let [
-         p# (promise)
-         ]
-     (Platform/runLater
-      (fn []
-        (deliver p# (try ~@forms (catch Throwable t# t#)))))
-     p#))
-
 (defonce webengine (do
                      (Thread/sleep 1000)
                      WebUIController/engine
@@ -45,129 +38,11 @@
 ;; https://stackoverflow.com/questions/22778241/javafx-webview-scroll-to-desired-position
 (def webview WebUIController/view)
 
-(defn execute-script [w-engine s]
-  (run-later
-   (let [
-         result (.executeScript w-engine s)
-         ]
-     (if (instance? JSObject result)
-       (str result)
-       result))))
-
-(defn inject-firebug [w-engine]
-  (execute-script w-engine (slurp "js-src/inject-firebug.js")))
-
-(defn execute-script-async [w-engine s]
-  (let [
-        p (promise)
-        *out* *out*
-        ]
-    (Platform/runLater
-     (fn []
-       (let [
-             o (.executeScript w-engine "new Object()")
-             ]
-         (.setMember o "cb" (fn [s] (deliver p s)))
-         (.setMember o "println" (fn [s] (println s)))
-         (.eval o s))))
-    @p))
-
-(defn repl []
-  (let [s (read-line)]
-    (when (not= "" (.trim s))
-      (println @(execute-script webengine s))
-      (recur))))
-
-(defn bind [s obj]
-  (run-later
-   (.setMember
-    (.executeScript webengine "window")
-    s obj)))
-
 (defonce cookie-manager
   (doto (java.net.CookieManager.)
     java.net.CookieHandler/setDefault))
 
-(defn clear-cookies []
-  (-> cookie-manager .getCookieStore .removeAll))
-
-(def js-disable-inputs (slurp "js-src/disable-inputs.js"))
-
-(defn async-load [url]
-  (let [
-        p (promise)
-        f (fn [s]
-            (binding [*out* *out*] (println s)))
-        listener (reify ChangeListener
-                   (changed [this observable old-value new-value]
-                     (when (= new-value Worker$State/SUCCEEDED)
-                                        ;first remove this listener
-                       (.removeListener observable this)
-                                        ;and then redefine log and error (fresh page)
-                       (bind "println" f)
-                       (future
-                         (Thread/sleep 1000)
-                         (execute-script webengine js-disable-inputs)
-                         (execute-script webengine "console.log = function(s) {println.invoke(s)};
-                                                 console.error = function(s) {println.invoke(s)};
-                                                 "))
-                       (deliver p true))))
-        ]
-    (run-later
-     (doto webengine
-       (-> .getLoadWorker .stateProperty (.addListener listener))
-       (.load url)))
-    @p))
-
-(defn back []
-  (execute-script webengine "window.history.back()"))
-
-;; https://docs.oracle.com/javafx/2/events/filters.htm
-(defn bind-keys [wv]
-  (doto wv
-    (->
-     (.addEventFilter
-      (. KeyEvent KEY_PRESSED)
-      (reify EventHandler ;; EventHandler
-        (handle [this event]
-          ;; (println "Clojure keypress detected\n")
-          ;; (println (-> event .getCode .toString))
-          (println (-> event .getText .toString))
-          (.consume event)
-          ;; disable webview here, until some delay was met
-          ;; https://stackoverflow.com/questions/27038443/javafx-disable-highlight-and-copy-mode-in-webengine
-          ;; https://docs.oracle.com/javase/8/javafx/api/javafx/scene/web/WebView.html
-          (execute-script webengine js-disable-inputs)
-          (case (-> event .getText .toString)
-            "k" (execute-script webengine "window.scrollTo(window.scrollX, window.scrollY - 50)")
-            "j" (execute-script webengine "window.scrollTo(window.scrollX, window.scrollY + 50)")
-            "c" (execute-script webengine "document.body.innerHTML=''")
-            "r" (execute-script webengine "window.location.reload()")
-            false)
-          ))))))
-
-(bind-keys webview)
-
-(defn url-or-no [url proto]
-  (let [url (.toString url)]
-    (URL.
-     (if (re-matches #".*\.css$" url)
-       (format "%s://0.0.0.0:65535" proto)
-       url))))
-
-;; Hmm, we could hide things we do not want to see.
-(defn my-connection-handler [protocol]
-  (case protocol
-    "http" (proxy [sun.net.www.protocol.http.Handler] []
-             (openConnection [& [url proxy :as args]]
-               (println url)
-               (proxy-super openConnection (url-or-no url protocol) proxy)))
-    "https" (proxy [sun.net.www.protocol.https.Handler] []
-              (openConnection [& [url proxy :as args]]
-                (println url)
-                (proxy-super openConnection (url-or-no url protocol) proxy)))
-    nil
-    ))
+(bind-keys webview webengine)
 
 (defonce stream-handler-factory
   (URL/setURLStreamHandlerFactory
