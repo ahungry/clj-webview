@@ -12,7 +12,7 @@
 
 (gen-class
  :extends javafx.application.Application
- :name hk.molloy.Browser)
+ :name com.ahungry.Browser)
 
 (gen-class
  :extends java.net.HttpURLConnection

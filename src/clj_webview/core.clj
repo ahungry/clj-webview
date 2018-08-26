@@ -3,7 +3,6 @@
 (import javafx.application.Application)
 (import javafx.application.Platform)
 (import javafx.scene.web.WebView)
-                                        ;(import hk.molloy.MyApplication)
 (import netscape.javascript.JSObject)
 (import javafx.beans.value.ChangeListener)
 (import javafx.event.EventHandler)
@@ -13,7 +12,7 @@
 (import MyEventDispatcher)
 
 ;;launch calls the fxml which in turn loads WebUIController
-(defonce launch (future (Application/launch hk.molloy.Browser (make-array String 0))))
+(defonce launch (future (Application/launch com.ahungry.Browser (make-array String 0))))
 
 (def url "http://ahungry.com")
 
