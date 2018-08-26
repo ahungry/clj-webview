@@ -80,6 +80,8 @@
 (defn clear-cookies []
   (-> cookie-manager .getCookieStore .removeAll))
 
+(def js-disable-inputs (slurp "js-src/disable-inputs.js"))
+
 (defn async-load [url]
   (let [
         p (promise)
@@ -94,29 +96,20 @@
                        (bind "println" f)
                        (future
                          (Thread/sleep 1000)
-                         (execute-script (slurp "js-src/disable-inputs.js"))
+                         (execute-script js-disable-inputs)
                          (execute-script "console.log = function(s) {println.invoke(s)};
                                                  console.error = function(s) {println.invoke(s)};
                                                  "))
                        (deliver p true))))
         ]
-
-    ;; (run-later
-    ;;  (doto webengine
-    ;;    (-> .getLoadWorker .stateProperty (.addListener key-listener))))
     (run-later
      (doto webengine
-       ;; (-> .getLoadWorker .stateProperty (.addListener key-listener))
        (-> .getLoadWorker .stateProperty (.addListener listener))
        (.load url)))
-
-    @p
-    ))
+    @p))
 
 (defn back []
   (execute-script "window.history.back()"))
-
-(def js-disable-inputs (slurp "js-src/disable-inputs.js"))
 
 ;; https://docs.oracle.com/javafx/2/events/filters.htm
 (doto webview
@@ -149,38 +142,38 @@
 
 
 ;; https://www.java-forums.org/javafx/93113-custom-javafx-webview-protocol-handler-print.html
-                                        ;over riding URL handlers
-(import sun.net.www.protocol.http.Handler)
-(import sun.net.www.protocol.http.HttpURLConnection)
+;; ;over riding URL handlers
+;; (import sun.net.www.protocol.http.Handler)
+;; (import sun.net.www.protocol.http.HttpURLConnection)
+(import sun.net.www.protocol.https.Handler)
+;; (import sun.net.www.protocol.https.HttpsURLConnectionImpl)
 (import java.net.URL)
 (import java.net.URLConnection)
-;; no matching ctor
-;; (import java.net.HttpURLConnection)
+(import java.net.HttpURLConnection)
 (import javax.net.ssl.HttpsURLConnection)
 (import java.io.File)
 (import java.net.URLStreamHandlerFactory)
 (import java.net.URLStreamHandler)
 
+(defn url-or-no [url proto]
+  (if (re-matches #".*\.css$" url) (URL. (format "%s://0.0.0.0:65535" proto)) url))
+
+;; Hmm, we could hide things we do not want to see.
 (defn my-connection-handler [protocol]
-  (println protocol)
-  (if (= "https" protocol)
-    (proxy [Handler] []
-      (openConnection [& [url proxy :as args]]
-        (println "Serve some https")
-        (HttpsURLConnection. url)))
-    (proxy [Handler] []
-      (openConnection [& [url proxy :as args]]
-        (println args)
-        (println protocol)
-        ;; #_(HttpURLConnection. url proxy)
-        ;; Not a bad way to just never resolve URLs we want to skip (advertising ones)
-        (if (re-matches #".*.css" (.toString url)) (HttpURLConnection. (URL. "http://0.0.0.0") proxy)
-            (HttpURLConnection. url proxy))
-        ))))
+  (case protocol
+    "http" (proxy [sun.net.www.protocol.http.Handler] []
+             (openConnection [& [url proxy :as args]]
+               (println url)
+               (proxy-super openConnection (url-or-no url protocol) proxy)))
+    "https" (proxy [sun.net.www.protocol.https.Handler] []
+              (openConnection [& [url proxy :as args]]
+                (println url)
+                (proxy-super openConnection (url-or-no url protocol) proxy)))
+    nil
+    ))
 
 (defonce stream-handler-factory
   (URL/setURLStreamHandlerFactory
    (reify URLStreamHandlerFactory
-     ;; (createURLStreamHandler [this protocol] (#'my-connection-handler protocol))
      (createURLStreamHandler [this protocol] (#'my-connection-handler protocol))
      )))
