@@ -156,7 +156,11 @@
 (import java.net.URLStreamHandler)
 
 (defn url-or-no [url proto]
-  (if (re-matches #".*\.css$" url) (URL. (format "%s://0.0.0.0:65535" proto)) url))
+  (let [url (.toString url)]
+    (URL.
+     (if (re-matches #".*\.css$" url)
+       (format "%s://0.0.0.0:65535" proto)
+       url))))
 
 ;; Hmm, we could hide things we do not want to see.
 (defn my-connection-handler [protocol]
