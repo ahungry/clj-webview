@@ -1,4 +1,5 @@
-(ns clj-webview.lib)
+(ns clj-webview.lib
+  (:require [clojure.string :as str]))
 
 (import javafx.application.Application)
 (import javafx.application.Platform)
@@ -76,7 +77,10 @@
 (defn clear-cookies [cookie-manager]
   (-> cookie-manager .getCookieStore .removeAll))
 
-(def js-disable-inputs (slurp "js-src/disable-inputs.js"))
+(defmacro compile-time-slurp [file]
+  (slurp file))
+
+(def js-disable-inputs (compile-time-slurp "js-src/disable-inputs.js"))
 
 (defn async-load [url webengine]
   (let [
@@ -131,17 +135,22 @@
             false)
           ))))))
 
+(defn url-ignore-regexes-from-file [file]
+  (map re-pattern (str/split (slurp file) #"\n")))
+
 (defn url-ignore-regexes []
-  [
-   #".*analytics.*"
-   #".*\.css$"
-   ])
+  (url-ignore-regexes-from-file "conf/url-ignore-regexes.txt"))
 
 (defn matching-regexes [url regexes]
   (filter #(re-matches % url) regexes))
 
 (defn url-ignorable? [url]
-  (> (count (matching-regexes url (url-ignore-regexes))) 0))
+  (let [ignorables (matching-regexes url (url-ignore-regexes))]
+    (if (> (count ignorables) 0)
+      (do
+        (println (format "Ignoring URL: %s, hit %d matchers." url (count ignorables)))
+        true)
+      false)))
 
 (defn url-or-no [url proto]
   (let [url (.toString url)]
