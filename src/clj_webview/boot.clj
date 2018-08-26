@@ -11,10 +11,22 @@
 (import WebUIController)
 (import MyEventDispatcher)
 
+;; https://www.java-forums.org/javafx/93113-custom-javafx-webview-protocol-handler-print.html
+;; ;over riding URL handlers
+;; (import sun.net.www.protocol.http.Handler)
+;; (import sun.net.www.protocol.http.HttpURLConnection)
+(import sun.net.www.protocol.https.Handler)
+;; (import sun.net.www.protocol.https.HttpsURLConnectionImpl)
+(import java.net.URL)
+(import java.net.URLConnection)
+(import java.net.HttpURLConnection)
+(import javax.net.ssl.HttpsURLConnection)
+(import java.io.File)
+(import java.net.URLStreamHandlerFactory)
+(import java.net.URLStreamHandler)
+
 ;;launch calls the fxml which in turn loads WebUIController
 (defonce launch (future (Application/launch com.ahungry.Browser (make-array String 0))))
-
-(def url "http://ahungry.com")
 
 (defmacro run-later [& forms]
   `(let [
@@ -33,19 +45,19 @@
 ;; https://stackoverflow.com/questions/22778241/javafx-webview-scroll-to-desired-position
 (def webview WebUIController/view)
 
-(defn execute-script [s]
+(defn execute-script [w-engine s]
   (run-later
    (let [
-         result (.executeScript webengine s)
+         result (.executeScript w-engine s)
          ]
      (if (instance? JSObject result)
        (str result)
        result))))
 
-(defn inject-firebug []
-  (execute-script (slurp "js-src/inject-firebug.js")))
+(defn inject-firebug [w-engine]
+  (execute-script w-engine (slurp "js-src/inject-firebug.js")))
 
-(defn execute-script-async [s]
+(defn execute-script-async [w-engine s]
   (let [
         p (promise)
         *out* *out*
@@ -53,7 +65,7 @@
     (Platform/runLater
      (fn []
        (let [
-             o (.executeScript webengine "new Object()")
+             o (.executeScript w-engine "new Object()")
              ]
          (.setMember o "cb" (fn [s] (deliver p s)))
          (.setMember o "println" (fn [s] (println s)))
@@ -63,7 +75,7 @@
 (defn repl []
   (let [s (read-line)]
     (when (not= "" (.trim s))
-      (println @(execute-script s))
+      (println @(execute-script webengine s))
       (recur))))
 
 (defn bind [s obj]
@@ -95,8 +107,8 @@
                        (bind "println" f)
                        (future
                          (Thread/sleep 1000)
-                         (execute-script js-disable-inputs)
-                         (execute-script "console.log = function(s) {println.invoke(s)};
+                         (execute-script webengine js-disable-inputs)
+                         (execute-script webengine "console.log = function(s) {println.invoke(s)};
                                                  console.error = function(s) {println.invoke(s)};
                                                  "))
                        (deliver p true))))
@@ -108,51 +120,33 @@
     @p))
 
 (defn back []
-  (execute-script "window.history.back()"))
+  (execute-script webengine "window.history.back()"))
 
 ;; https://docs.oracle.com/javafx/2/events/filters.htm
-(doto webview
-  (->
-   (.addEventFilter
-    (. KeyEvent KEY_PRESSED)
-    (reify EventHandler ;; EventHandler
-      (handle [this event]
-        ;; (println "Clojure keypress detected\n")
-        ;; (println (-> event .getCode .toString))
-        (println (-> event .getText .toString))
-        (.consume event)
-        ;; disable webview here, until some delay was met
-        ;; https://stackoverflow.com/questions/27038443/javafx-disable-highlight-and-copy-mode-in-webengine
-        ;; https://docs.oracle.com/javase/8/javafx/api/javafx/scene/web/WebView.html
-        (execute-script js-disable-inputs)
-        (case (-> event .getText .toString)
-          "k" (execute-script "window.scrollTo(window.scrollX, window.scrollY - 50)")
-          "j" (execute-script "window.scrollTo(window.scrollX, window.scrollY + 50)")
-          "c" (execute-script "document.body.innerHTML=''")
-          "r" (execute-script "window.location.reload()")
-          false)
-        )))))
+(defn bind-keys [wv]
+  (doto wv
+    (->
+     (.addEventFilter
+      (. KeyEvent KEY_PRESSED)
+      (reify EventHandler ;; EventHandler
+        (handle [this event]
+          ;; (println "Clojure keypress detected\n")
+          ;; (println (-> event .getCode .toString))
+          (println (-> event .getText .toString))
+          (.consume event)
+          ;; disable webview here, until some delay was met
+          ;; https://stackoverflow.com/questions/27038443/javafx-disable-highlight-and-copy-mode-in-webengine
+          ;; https://docs.oracle.com/javase/8/javafx/api/javafx/scene/web/WebView.html
+          (execute-script webengine js-disable-inputs)
+          (case (-> event .getText .toString)
+            "k" (execute-script webengine "window.scrollTo(window.scrollX, window.scrollY - 50)")
+            "j" (execute-script webengine "window.scrollTo(window.scrollX, window.scrollY + 50)")
+            "c" (execute-script webengine "document.body.innerHTML=''")
+            "r" (execute-script webengine "window.location.reload()")
+            false)
+          ))))))
 
-(defn -main []
-  (println "Begin.")
-  (async-load "http://ahungry.com"))
-
-;; (-main)
-
-
-;; https://www.java-forums.org/javafx/93113-custom-javafx-webview-protocol-handler-print.html
-;; ;over riding URL handlers
-;; (import sun.net.www.protocol.http.Handler)
-;; (import sun.net.www.protocol.http.HttpURLConnection)
-(import sun.net.www.protocol.https.Handler)
-;; (import sun.net.www.protocol.https.HttpsURLConnectionImpl)
-(import java.net.URL)
-(import java.net.URLConnection)
-(import java.net.HttpURLConnection)
-(import javax.net.ssl.HttpsURLConnection)
-(import java.io.File)
-(import java.net.URLStreamHandlerFactory)
-(import java.net.URLStreamHandler)
+(bind-keys webview)
 
 (defn url-or-no [url proto]
   (let [url (.toString url)]
