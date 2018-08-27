@@ -111,6 +111,47 @@
 (defn back [webengine]
   (execute-script webengine "window.history.back()"))
 
+(declare keys-g-map)
+(declare keys-default)
+(declare bind-keys)
+
+;; Atomic (thread safe), pretty neat.
+(def key-map-current (atom :default))
+(defn key-map-set [which] (swap! key-map-current (fn [_] which)))
+(defn key-map-get [] @key-map-current)
+
+(defn keys-g-map [key]
+  (key-map-set :default)
+  (case key
+    "g" "window.scrollTo(0, 0)"
+    false))
+
+(defn keys-def-map [key]
+  (case key
+    "g" (key-map-set :g)
+    "G" "window.scrollTo(0, window.scrollY + 5000)"
+    "k" "window.scrollTo(window.scrollX, window.scrollY - 50)"
+    "j" "window.scrollTo(window.scrollX, window.scrollY + 50)"
+    "c" "document.body.innerHTML=''"
+    "r" "window.location.reload()"
+    false))
+
+(defn key-map-dispatcher []
+  (case (key-map-get)
+    :default keys-def-map
+    :g keys-g-map
+    keys-def-map))
+
+(defn key-map-op [key]
+  (let [fn-map (key-map-dispatcher)]
+    (fn-map key)))
+
+(defn key-map-handler [key webview webengine]
+  (let [op (key-map-op key )]
+    (println (format "KM OP: %s" op))
+    (when (= java.lang.String (type op))
+      (execute-script webengine op))))
+
 ;; https://docs.oracle.com/javafx/2/events/filters.htm
 (defn bind-keys [wv webengine]
   (doto wv
@@ -127,12 +168,7 @@
           ;; https://stackoverflow.com/questions/27038443/javafx-disable-highlight-and-copy-mode-in-webengine
           ;; https://docs.oracle.com/javase/8/javafx/api/javafx/scene/web/WebView.html
           (execute-script webengine js-disable-inputs)
-          (case (-> event .getText .toString)
-            "k" (execute-script webengine "window.scrollTo(window.scrollX, window.scrollY - 50)")
-            "j" (execute-script webengine "window.scrollTo(window.scrollX, window.scrollY + 50)")
-            "c" (execute-script webengine "document.body.innerHTML=''")
-            "r" (execute-script webengine "window.location.reload()")
-            false)
+          (key-map-handler (-> event .getText .toString) wv webengine)
           ))))))
 
 (defn url-ignore-regexes-from-file [file]
