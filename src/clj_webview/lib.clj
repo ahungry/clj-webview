@@ -119,6 +119,7 @@
 (def key-map-current (atom :default))
 (defn key-map-set [which] (swap! key-map-current (fn [_] which)))
 (defn key-map-get [] @key-map-current)
+;; TODO: Add numeric prefixes for repeatables
 
 (defn keys-g-map [key]
   (key-map-set :default)
